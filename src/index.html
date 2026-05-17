@@ -1,0 +1,1605 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>局域网文件传输 - P2P</title>
+    <style>
+        :root {
+            --bg: #f0f2f5;
+            --card-bg: #ffffff;
+            --primary: #4a6cf7;
+            --primary-hover: #3b5de7;
+            --send-color: #f59e0b;
+            --send-hover: #e8900a;
+            --receive-color: #10b981;
+            --receive-hover: #059669;
+            --text: #1e293b;
+            --text-secondary: #64748b;
+            --border: #e2e8f0;
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+            --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.12);
+            --radius: 16px;
+            --radius-sm: 10px;
+            --transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            --font-mono: 'SF Mono', 'Fira Code', 'Consolas', 'Monaco', 'Courier New', monospace;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background: linear-gradient(135deg, #e8edf5 0%, #f0f2f5 30%, #eaf0f8 60%, #f0f2f5 100%);
+            background-attachment: fixed;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 560px;
+            animation: fadeInUp 0.5s ease;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(24px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes pulse {
+            0%,
+            100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+        }
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+        @keyframes bounceIn {
+            0% {
+                transform: scale(0.3);
+                opacity: 0;
+            }
+            50% {
+                transform: scale(1.05);
+            }
+            70% {
+                transform: scale(0.95);
+            }
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        /* 头部 */
+        .header {
+            text-align: center;
+            margin-bottom: 28px;
+        }
+        .header .logo-icon {
+            display: inline-block;
+            width: 56px;
+            height: 56px;
+            background: var(--primary);
+            border-radius: 18px;
+            margin-bottom: 12px;
+            position: relative;
+            box-shadow: 0 8px 24px rgba(74, 108, 247, 0.3);
+        }
+        .header .logo-icon::after {
+            content: '';
+            position: absolute;
+            inset: 8px;
+            border-radius: 10px;
+            background: white;
+            mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234a6cf7' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'/%3E%3Cpolyline points='17 8 12 3 7 8'/%3E%3Cline x1='12' y1='3' x2='12' y2='15'/%3E%3C/svg%3E") center/18px no-repeat;
+            -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234a6cf7' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'/%3E%3Cpolyline points='17 8 12 3 7 8'/%3E%3Cline x1='12' y1='3' x2='12' y2='15'/%3E%3C/svg%3E") center/18px no-repeat;
+        }
+        .header h1 {
+            font-size: 1.6rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            color: var(--text);
+        }
+        .header .subtitle {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        /* 角色选择卡片 */
+        .role-selection {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        .role-card {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            padding: 28px 20px;
+            text-align: center;
+            cursor: pointer;
+            border: 2px solid transparent;
+            box-shadow: var(--shadow);
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+        }
+        .role-card:hover {
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-lg);
+        }
+        .role-card.send-card {
+            border-color: #fef3c7;
+        }
+        .role-card.send-card:hover {
+            border-color: var(--send-color);
+            background: #fffbeb;
+        }
+        .role-card.receive-card {
+            border-color: #d1fae5;
+        }
+        .role-card.receive-card:hover {
+            border-color: var(--receive-color);
+            background: #f0fdf4;
+        }
+        .role-card .role-icon {
+            font-size: 3rem;
+            margin-bottom: 10px;
+            display: block;
+            transition: var(--transition);
+        }
+        .role-card:hover .role-icon {
+            transform: scale(1.1);
+        }
+        .role-card .role-title {
+            font-size: 1.15rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        .role-card.send-card .role-title {
+            color: #b45309;
+        }
+        .role-card.receive-card .role-title {
+            color: #047857;
+        }
+        .role-card .role-desc {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+        .role-card .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            margin-top: 8px;
+            letter-spacing: 0.03em;
+        }
+        .send-card .badge {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .receive-card .badge {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        /* 面板 */
+        .panel {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            padding: 24px;
+            box-shadow: var(--shadow);
+            display: none;
+            animation: fadeInUp 0.4s ease;
+        }
+        .panel.active {
+            display: block;
+        }
+        .panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .panel-header h2 {
+            font-size: 1.2rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .back-btn {
+            background: #f1f5f9;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            transition: var(--transition);
+            white-space: nowrap;
+        }
+        .back-btn:hover {
+            background: #e2e8f0;
+            color: var(--text);
+        }
+
+        /* 文件选择区域 */
+        .drop-zone {
+            border: 2px dashed #cbd5e1;
+            border-radius: var(--radius-sm);
+            padding: 36px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: var(--transition);
+            background: #fafbfc;
+            position: relative;
+        }
+        .drop-zone:hover,
+        .drop-zone.drag-over {
+            border-color: var(--primary);
+            background: #f0f4ff;
+            box-shadow: inset 0 0 0 4px rgba(74, 108, 247, 0.04);
+        }
+        .drop-zone .drop-icon {
+            font-size: 3rem;
+            display: block;
+            margin-bottom: 8px;
+        }
+        .drop-zone .drop-text {
+            font-weight: 600;
+            color: var(--text);
+        }
+        .drop-zone .drop-hint {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+        .drop-zone input[type="file"] {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+        .file-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: #f8fafc;
+            border-radius: var(--radius-sm);
+            padding: 14px 16px;
+            margin-top: 14px;
+            border: 1px solid var(--border);
+        }
+        .file-info .file-icon {
+            font-size: 2rem;
+            flex-shrink: 0;
+        }
+        .file-info .file-details {
+            flex: 1;
+            min-width: 0;
+        }
+        .file-info .file-name {
+            font-weight: 600;
+            font-size: 0.95rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .file-info .file-size {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+        .file-info .remove-file {
+            background: #fee2e2;
+            border: none;
+            color: #dc2626;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: var(--transition);
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .file-info .remove-file:hover {
+            background: #fecaca;
+        }
+
+        /* 按钮 */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            cursor: pointer;
+            border: none;
+            transition: var(--transition);
+            letter-spacing: 0.01em;
+            white-space: nowrap;
+        }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+        .btn-primary {
+            background: var(--primary);
+            color: #fff;
+            box-shadow: 0 4px 14px rgba(74, 108, 247, 0.3);
+        }
+        .btn-primary:hover:not(:disabled) {
+            background: var(--primary-hover);
+            box-shadow: 0 6px 20px rgba(74, 108, 247, 0.4);
+            transform: translateY(-1px);
+        }
+        .btn-outline {
+            background: #fff;
+            color: var(--primary);
+            border: 2px solid var(--primary);
+        }
+        .btn-outline:hover:not(:disabled) {
+            background: #f0f4ff;
+        }
+        .btn-sm {
+            padding: 7px 16px;
+            font-size: 0.8rem;
+            border-radius: 20px;
+        }
+        .btn-copy {
+            background: #f1f5f9;
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+        .btn-copy:hover {
+            background: #e2e8f0;
+        }
+        .btn-copy.copied {
+            background: #d1fae5;
+            border-color: #10b981;
+            color: #065f46;
+        }
+
+        /* SDP 文本框 */
+        .sdp-area {
+            width: 100%;
+            min-height: 100px;
+            max-height: 200px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 12px;
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            resize: vertical;
+            background: #fafbfc;
+            color: var(--text);
+            line-height: 1.4;
+            word-break: break-all;
+            transition: var(--transition);
+        }
+        .sdp-area:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(74, 108, 247, 0.1);
+            background: #fff;
+        }
+        .sdp-label {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .sdp-section {
+            margin-top: 14px;
+        }
+
+        /* 进度条 */
+        .progress-section {
+            margin-top: 16px;
+            display: none;
+        }
+        .progress-section.active {
+            display: block;
+            animation: fadeInUp 0.3s ease;
+        }
+        .progress-bar-wrap {
+            background: #e2e8f0;
+            border-radius: 10px;
+            height: 10px;
+            overflow: hidden;
+            margin: 8px 0;
+        }
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4a6cf7, #6d8cf7);
+            border-radius: 10px;
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+        .progress-stats {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+        .progress-stats span {
+            font-weight: 500;
+        }
+
+        /* 状态标签 */
+        .status-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+        }
+        .status-connecting {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .status-connected {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        .status-transferring {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+        .status-complete {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        .status-error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        .status-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .status-connecting .status-dot {
+            background: #f59e0b;
+            animation: pulse 1.2s infinite;
+        }
+        .status-connected .status-dot {
+            background: #10b981;
+        }
+        .status-transferring .status-dot {
+            background: #4a6cf7;
+            animation: pulse 0.8s infinite;
+        }
+        .status-complete .status-dot {
+            background: #10b981;
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1e293b;
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            pointer-events: none;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
+        }
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+        .toast.success {
+            background: #065f46;
+        }
+
+        /* 响应式 */
+        @media (max-width: 480px) {
+            .role-selection {
+                grid-template-columns: 1fr;
+                gap: 12px;
+            }
+            .panel {
+                padding: 16px;
+            }
+            .btn {
+                padding: 10px 18px;
+                font-size: 0.85rem;
+            }
+            .header h1 {
+                font-size: 1.3rem;
+            }
+            .drop-zone {
+                padding: 24px 14px;
+            }
+            .sdp-area {
+                font-size: 0.65rem;
+                min-height: 80px;
+            }
+        }
+
+        /* 隐藏工具类 */
+        .hidden {
+            display: none !important;
+        }
+        .text-center {
+            text-align: center;
+        }
+        .mt-3 {
+            margin-top: 14px;
+        }
+        .mt-2 {
+            margin-top: 10px;
+        }
+        .gap-2 {
+            gap: 8px;
+        }
+        .flex-wrap {
+            display: flex;
+            flex-wrap: wrap;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <!-- 头部 -->
+        <div class="header">
+            <div class="logo-icon"></div>
+            <h1>局域网文件传输</h1>
+            <p class="subtitle">点对点 · 安全 · 无需服务器</p>
+        </div>
+
+        <!-- 角色选择 -->
+        <div class="role-selection" id="roleSelection">
+            <div class="role-card send-card" onclick="selectRole('send')">
+                <span class="role-icon">📤</span>
+                <div class="role-title">我要发送</div>
+                <div class="role-desc">选择文件并分享给局域网内的伙伴</div>
+                <span class="badge">发送方</span>
+            </div>
+            <div class="role-card receive-card" onclick="selectRole('receive')">
+                <span class="role-icon">📥</span>
+                <div class="role-title">我要接收</div>
+                <div class="role-desc">接收来自发送方的文件</div>
+                <span class="badge">接收方</span>
+            </div>
+        </div>
+
+        <!-- 发送面板 -->
+        <div class="panel" id="sendPanel">
+            <div class="panel-header">
+                <h2>📤 发送文件</h2>
+                <button class="back-btn" onclick="goBack()">← 返回</button>
+            </div>
+
+            <!-- 文件选择 -->
+            <div class="drop-zone" id="dropZone">
+                <span class="drop-icon">📁</span>
+                <div class="drop-text">点击选择文件或拖拽到此处</div>
+                <div class="drop-hint">支持任意类型文件，大小不限</div>
+                <input type="file" id="fileInput" onchange="onFileSelected(this.files[0])">
+            </div>
+            <div class="file-info hidden" id="fileInfo">
+                <span class="file-icon">📄</span>
+                <div class="file-details">
+                    <div class="file-name" id="fileName"></div>
+                    <div class="file-size" id="fileSize"></div>
+                </div>
+                <button class="remove-file" onclick="removeFile()" title="移除文件">✕</button>
+            </div>
+
+            <!-- 生成Offer按钮 -->
+            <button class="btn btn-primary mt-3" id="generateOfferBtn" disabled onclick="generateOffer()" style="width:100%;">
+                🔗 生成连接码（Offer）
+            </button>
+
+            <!-- Offer SDP -->
+            <div class="sdp-section hidden" id="offerSection">
+                <div class="sdp-label">📋 连接码（Offer SDP）<span style="font-weight:400;color:#94a3b8;">— 请复制发送给接收方</span></div>
+                <textarea class="sdp-area" id="offerSdpText" readonly placeholder="正在生成连接码..."></textarea>
+                <button class="btn btn-copy btn-sm mt-2" id="copyOfferBtn" onclick="copySdp('offerSdpText', 'copyOfferBtn')">
+                    📋 复制到剪贴板
+                </button>
+            </div>
+
+            <!-- 粘贴Answer -->
+            <div class="sdp-section hidden" id="answerPasteSection">
+                <div class="sdp-label">📩 请粘贴接收方的回复码（Answer SDP）</div>
+                <textarea class="sdp-area" id="answerSdpInput" placeholder="在此粘贴接收方发来的回复码..."></textarea>
+                <button class="btn btn-primary mt-2" id="confirmAnswerBtn" onclick="confirmAnswer()" style="width:100%;">
+                    ✅ 确认并开始传输
+                </button>
+            </div>
+
+            <!-- 传输进度 -->
+            <div class="progress-section" id="sendProgress">
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                    <span style="font-weight:600;">传输进度</span>
+                    <span class="status-tag status-transferring" id="sendStatusTag">
+                        <span class="status-dot"></span>传输中
+                    </span>
+                </div>
+                <div class="progress-bar-wrap">
+                    <div class="progress-bar-fill" id="sendProgressBar"></div>
+                </div>
+                <div class="progress-stats">
+                    <span id="sendProgressText">0%</span>
+                    <span id="sendSpeed">--</span>
+                    <span id="sendRemaining">--</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 接收面板 -->
+        <div class="panel" id="receivePanel">
+            <div class="panel-header">
+                <h2>📥 接收文件</h2>
+                <button class="back-btn" onclick="goBack()">← 返回</button>
+            </div>
+
+            <!-- 粘贴Offer -->
+            <div class="sdp-section">
+                <div class="sdp-label">📩 请粘贴发送方的连接码（Offer SDP）</div>
+                <textarea class="sdp-area" id="receiveOfferInput" placeholder="在此粘贴发送方发来的连接码..."></textarea>
+                <button class="btn btn-primary mt-2" id="processOfferBtn" onclick="processOffer()" style="width:100%;">
+                    🔓 解析并生成回复码
+                </button>
+            </div>
+
+            <!-- Answer SDP -->
+            <div class="sdp-section hidden" id="answerSection">
+                <div class="sdp-label">📋 回复码（Answer SDP）<span style="font-weight:400;color:#94a3b8;">— 请复制发送给发送方</span></div>
+                <textarea class="sdp-area" id="answerSdpText" readonly placeholder="正在生成回复码..."></textarea>
+                <button class="btn btn-copy btn-sm mt-2" id="copyAnswerBtn" onclick="copySdp('answerSdpText', 'copyAnswerBtn')">
+                    📋 复制到剪贴板
+                </button>
+                <div class="status-tag status-connecting mt-2" id="receiveWaitTag">
+                    <span class="status-dot"></span>等待发送方确认...
+                </div>
+            </div>
+
+            <!-- 接收进度 -->
+            <div class="progress-section" id="receiveProgress">
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                    <span style="font-weight:600;">接收进度</span>
+                    <span class="status-tag status-transferring" id="receiveStatusTag">
+                        <span class="status-dot"></span>接收中
+                    </span>
+                </div>
+                <div class="progress-bar-wrap">
+                    <div class="progress-bar-fill" id="receiveProgressBar"></div>
+                </div>
+                <div class="progress-stats">
+                    <span id="receiveProgressText">0%</span>
+                    <span id="receiveSpeed">--</span>
+                    <span id="receiveRemaining">--</span>
+                </div>
+                <div id="receiveFileInfo" class="file-info hidden mt-2">
+                    <span class="file-icon">📄</span>
+                    <div class="file-details">
+                        <div class="file-name" id="receiveFileName"></div>
+                        <div class="file-size" id="receiveFileSize"></div>
+                    </div>
+                </div>
+                <button class="btn btn-primary mt-3 hidden" id="downloadBtn" onclick="downloadReceivedFile()" style="width:100%;">
+                    💾 下载文件
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <script>
+        (function() {
+            // ============ DOM 元素 ============
+            const roleSelection = document.getElementById('roleSelection');
+            const sendPanel = document.getElementById('sendPanel');
+            const receivePanel = document.getElementById('receivePanel');
+            const fileInput = document.getElementById('fileInput');
+            const dropZone = document.getElementById('dropZone');
+            const fileInfo = document.getElementById('fileInfo');
+            const fileName = document.getElementById('fileName');
+            const fileSize = document.getElementById('fileSize');
+            const generateOfferBtn = document.getElementById('generateOfferBtn');
+            const offerSection = document.getElementById('offerSection');
+            const offerSdpText = document.getElementById('offerSdpText');
+            const copyOfferBtn = document.getElementById('copyOfferBtn');
+            const answerPasteSection = document.getElementById('answerPasteSection');
+            const answerSdpInput = document.getElementById('answerSdpInput');
+            const confirmAnswerBtn = document.getElementById('confirmAnswerBtn');
+            const sendProgress = document.getElementById('sendProgress');
+            const sendProgressBar = document.getElementById('sendProgressBar');
+            const sendProgressText = document.getElementById('sendProgressText');
+            const sendSpeed = document.getElementById('sendSpeed');
+            const sendRemaining = document.getElementById('sendRemaining');
+            const sendStatusTag = document.getElementById('sendStatusTag');
+            const receiveOfferInput = document.getElementById('receiveOfferInput');
+            const processOfferBtn = document.getElementById('processOfferBtn');
+            const answerSection = document.getElementById('answerSection');
+            const answerSdpText = document.getElementById('answerSdpText');
+            const copyAnswerBtn = document.getElementById('copyAnswerBtn');
+            const receiveWaitTag = document.getElementById('receiveWaitTag');
+            const receiveProgress = document.getElementById('receiveProgress');
+            const receiveProgressBar = document.getElementById('receiveProgressBar');
+            const receiveProgressText = document.getElementById('receiveProgressText');
+            const receiveSpeed = document.getElementById('receiveSpeed');
+            const receiveRemaining = document.getElementById('receiveRemaining');
+            const receiveStatusTag = document.getElementById('receiveStatusTag');
+            const receiveFileInfo = document.getElementById('receiveFileInfo');
+            const receiveFileName = document.getElementById('receiveFileName');
+            const receiveFileSize = document.getElementById('receiveFileSize');
+            const downloadBtn = document.getElementById('downloadBtn');
+            const toast = document.getElementById('toast');
+
+            // ============ 状态变量 ============
+            let currentRole = null; // 'send' | 'receive'
+            let selectedFile = null;
+            let pc = null; // RTCPeerConnection
+            let dc = null; // DataChannel (发送方创建的，或接收方通过ondatachannel获取的)
+            let sendDc = null; // 发送方的DataChannel引用
+
+            // 文件传输相关
+            const CHUNK_SIZE = 16384; // 16KB 每块
+            let totalChunks = 0;
+            let sentChunks = 0;
+            let receivedChunks = 0;
+            let receivedData = []; // 接收到的块数据
+            let transferStartTime = 0;
+            let lastUpdateTime = 0;
+            let lastUpdateBytes = 0;
+            let receiveFileNameStr = '';
+            let receiveFileSizeNum = 0;
+            let transferComplete = false;
+
+            // ============ Toast ============
+            let toastTimer;
+
+            function showToast(msg, type = '') {
+                clearTimeout(toastTimer);
+                toast.textContent = msg;
+                toast.className = 'toast ' + type + ' show';
+                toastTimer = setTimeout(() => {
+                    toast.classList.remove('show');
+                }, 2200);
+            }
+
+            // ============ 角色选择 ============
+            window.selectRole = function(role) {
+                currentRole = role;
+                roleSelection.style.display = 'none';
+                if (role === 'send') {
+                    sendPanel.classList.add('active');
+                    receivePanel.classList.remove('active');
+                    resetSendState();
+                } else {
+                    receivePanel.classList.add('active');
+                    sendPanel.classList.remove('active');
+                    resetReceiveState();
+                }
+            };
+
+            window.goBack = function() {
+                currentRole = null;
+                roleSelection.style.display = '';
+                sendPanel.classList.remove('active');
+                receivePanel.classList.remove('active');
+                cleanupConnection();
+                selectedFile = null;
+                fileInput.value = '';
+                resetSendUI();
+                resetReceiveUI();
+            };
+
+            function resetSendState() {
+                cleanupConnection();
+                resetSendUI();
+                if (selectedFile) {
+                    displayFileInfo(selectedFile);
+                    generateOfferBtn.disabled = false;
+                } else {
+                    generateOfferBtn.disabled = true;
+                }
+            }
+
+            function resetReceiveState() {
+                cleanupConnection();
+                resetReceiveUI();
+                receivedData = [];
+                receivedChunks = 0;
+                totalChunks = 0;
+                receiveFileNameStr = '';
+                receiveFileSizeNum = 0;
+                transferComplete = false;
+            }
+
+            function resetSendUI() {
+                offerSection.classList.add('hidden');
+                answerPasteSection.classList.add('hidden');
+                sendProgress.classList.remove('active');
+                sendProgressBar.style.width = '0%';
+                sendProgressText.textContent = '0%';
+                sendSpeed.textContent = '--';
+                sendRemaining.textContent = '--';
+                offerSdpText.value = '';
+                answerSdpInput.value = '';
+                copyOfferBtn.classList.remove('copied');
+                copyOfferBtn.textContent = '📋 复制到剪贴板';
+                sendStatusTag.innerHTML = '<span class="status-dot"></span>传输中';
+                sendStatusTag.className = 'status-tag status-transferring';
+                confirmAnswerBtn.disabled = false;
+                generateOfferBtn.disabled = !selectedFile;
+            }
+
+            function resetReceiveUI() {
+                answerSection.classList.add('hidden');
+                receiveProgress.classList.remove('active');
+                receiveProgressBar.style.width = '0%';
+                receiveProgressText.textContent = '0%';
+                receiveSpeed.textContent = '--';
+                receiveRemaining.textContent = '--';
+                answerSdpText.value = '';
+                receiveOfferInput.value = '';
+                copyAnswerBtn.classList.remove('copied');
+                copyAnswerBtn.textContent = '📋 复制到剪贴板';
+                receiveWaitTag.style.display = '';
+                receiveWaitTag.innerHTML = '<span class="status-dot"></span>等待发送方确认...';
+                receiveWaitTag.className = 'status-tag status-connecting';
+                receiveStatusTag.innerHTML = '<span class="status-dot"></span>接收中';
+                receiveStatusTag.className = 'status-tag status-transferring';
+                receiveFileInfo.classList.add('hidden');
+                downloadBtn.classList.add('hidden');
+                processOfferBtn.disabled = false;
+            }
+
+            function cleanupConnection() {
+                if (dc) {
+                    try { dc.close(); } catch (e) {}
+                    dc = null;
+                }
+                if (sendDc) {
+                    try { sendDc.close(); } catch (e) {}
+                    sendDc = null;
+                }
+                if (pc) {
+                    try { pc.close(); } catch (e) {}
+                    pc = null;
+                }
+            }
+
+            // ============ 文件选择 ============
+            window.onFileSelected = function(file) {
+                if (!file) return;
+                selectedFile = file;
+                displayFileInfo(file);
+                generateOfferBtn.disabled = false;
+                // 重置后续状态
+                offerSection.classList.add('hidden');
+                answerPasteSection.classList.add('hidden');
+                sendProgress.classList.remove('active');
+                answerSdpInput.value = '';
+                offerSdpText.value = '';
+                cleanupConnection();
+            };
+
+            window.removeFile = function() {
+                selectedFile = null;
+                fileInput.value = '';
+                fileInfo.classList.add('hidden');
+                generateOfferBtn.disabled = true;
+                offerSection.classList.add('hidden');
+                answerPasteSection.classList.add('hidden');
+                sendProgress.classList.remove('active');
+                cleanupConnection();
+            };
+
+            function displayFileInfo(file) {
+                fileInfo.classList.remove('hidden');
+                fileName.textContent = file.name;
+                fileSize.textContent = formatBytes(file.size);
+            }
+
+            function formatBytes(bytes) {
+                if (bytes === 0) return '0 B';
+                const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(1024));
+                const size = (bytes / Math.pow(1024, i)).toFixed(i >= 2 ? 2 : 1);
+                return size + ' ' + units[i];
+            }
+
+            // ============ 拖拽支持 ============
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.classList.add('drag-over');
+            });
+            dropZone.addEventListener('dragleave', () => {
+                dropZone.classList.remove('drag-over');
+            });
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('drag-over');
+                const file = e.dataTransfer.files[0];
+                if (file) {
+                    fileInput.files = e.dataTransfer.files;
+                    onFileSelected(file);
+                }
+            });
+
+            // ============ 发送方：生成Offer ============
+            window.generateOffer = async function() {
+                if (!selectedFile) {
+                    showToast('请先选择文件', '');
+                    return;
+                }
+                generateOfferBtn.disabled = true;
+                generateOfferBtn.textContent = '⏳ 正在生成连接码...';
+                offerSdpText.value = '正在收集网络信息...';
+                offerSection.classList.remove('hidden');
+                answerPasteSection.classList.add('hidden');
+                sendProgress.classList.remove('active');
+                cleanupConnection();
+
+                try {
+                    pc = new RTCPeerConnection({
+                        iceServers: [] // 纯局域网，不需要STUN/TURN
+                    });
+
+                    // 发送方创建Data Channel
+                    sendDc = pc.createDataChannel('fileTransfer', {
+                        ordered: true,
+                    });
+                    dc = sendDc;
+                    setupDataChannelForSend(sendDc);
+
+                    // 创建Offer
+                    const offer = await pc.createOffer();
+                    await pc.setLocalDescription(offer);
+
+                    // 等待ICE收集完成
+                    await waitForIceComplete(pc);
+
+                    // 获取完整的SDP
+                    const fullSdp = pc.localDescription.sdp;
+                    offerSdpText.value = fullSdp;
+                    offerSection.classList.remove('hidden');
+                    answerPasteSection.classList.remove('hidden');
+                    copyOfferBtn.classList.remove('copied');
+                    copyOfferBtn.textContent = '📋 复制到剪贴板';
+
+                    // 自动复制
+                    autoCopySdp(fullSdp, 'copyOfferBtn');
+
+                    showToast('✅ 连接码已生成，请发送给接收方', 'success');
+                    generateOfferBtn.textContent = '🔄 重新生成连接码';
+                    generateOfferBtn.disabled = false;
+
+                } catch (err) {
+                    console.error('生成Offer失败:', err);
+                    showToast('❌ 生成连接码失败: ' + err.message, '');
+                    generateOfferBtn.disabled = false;
+                    generateOfferBtn.textContent = '🔗 生成连接码（Offer）';
+                    offerSection.classList.add('hidden');
+                    cleanupConnection();
+                }
+            };
+
+            function setupDataChannelForSend(channel) {
+                channel.onopen = () => {
+                    console.log('DataChannel已打开，准备发送文件');
+                };
+                channel.onclose = () => {
+                    console.log('DataChannel已关闭');
+                    if (!transferComplete && selectedFile) {
+                        showToast('⚠️ 连接意外断开', '');
+                    }
+                };
+                channel.onerror = (err) => {
+                    console.error('DataChannel错误:', err);
+                    showToast('❌ 数据传输错误', '');
+                };
+            }
+
+            // ============ 发送方：确认Answer ============
+            window.confirmAnswer = async function() {
+                const answerSdp = answerSdpInput.value.trim();
+                if (!answerSdp) {
+                    showToast('请粘贴接收方的回复码', '');
+                    return;
+                }
+                if (!pc) {
+                    showToast('请先生成连接码', '');
+                    return;
+                }
+                if (!selectedFile) {
+                    showToast('请先选择文件', '');
+                    return;
+                }
+
+                confirmAnswerBtn.disabled = true;
+                confirmAnswerBtn.textContent = '⏳ 正在建立连接...';
+
+                try {
+                    const remoteDesc = new RTCSessionDescription({
+                        type: 'answer',
+                        sdp: answerSdp,
+                    });
+                    await pc.setRemoteDescription(remoteDesc);
+
+                    // 连接建立后会自动开始发送（通过DataChannel的onopen事件）
+                    // 但我们在这里等待DataChannel打开
+                    if (sendDc && sendDc.readyState === 'open') {
+                        startSendingFile();
+                    } else if (sendDc) {
+                        sendDc.onopen = () => {
+                            startSendingFile();
+                        };
+                        // 如果已经打开了
+                        if (sendDc.readyState === 'open') {
+                            startSendingFile();
+                        }
+                    }
+
+                    confirmAnswerBtn.textContent = '✅ 已确认';
+                    showToast('🔗 连接建立成功，开始传输...', 'success');
+
+                } catch (err) {
+                    console.error('设置Answer失败:', err);
+                    showToast('❌ 连接失败: ' + err.message, '');
+                    confirmAnswerBtn.disabled = false;
+                    confirmAnswerBtn.textContent = '✅ 确认并开始传输';
+                }
+            };
+
+            async function startSendingFile() {
+                if (!sendDc || sendDc.readyState !== 'open' || !selectedFile) return;
+
+                sendProgress.classList.add('active');
+                sendStatusTag.innerHTML = '<span class="status-dot"></span>传输中';
+                sendStatusTag.className = 'status-tag status-transferring';
+                answerPasteSection.classList.add('hidden');
+                offerSection.classList.add('hidden');
+                generateOfferBtn.style.display = 'none';
+
+                const file = selectedFile;
+                totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+                sentChunks = 0;
+                transferComplete = false;
+                transferStartTime = performance.now();
+                lastUpdateTime = transferStartTime;
+                lastUpdateBytes = 0;
+
+                // 发送元数据
+                const metadata = JSON.stringify({
+                    type: 'metadata',
+                    name: file.name,
+                    size: file.size,
+                    chunkSize: CHUNK_SIZE,
+                    totalChunks: totalChunks,
+                });
+                sendDc.send(metadata);
+
+                // 逐块发送
+                const BUFFER_THRESHOLD = 256 * 1024; // 256KB 缓冲区阈值
+                let currentChunkIndex = 0;
+
+                async function sendNextChunk() {
+                    if (currentChunkIndex >= totalChunks) {
+                        // 所有块已发送
+                        sendDc.send(JSON.stringify({ type: 'complete' }));
+                        transferComplete = true;
+                        sendStatusTag.innerHTML = '<span class="status-dot"></span>传输完成';
+                        sendStatusTag.className = 'status-tag status-complete';
+                        sendProgressBar.style.width = '100%';
+                        sendProgressText.textContent = '100%';
+                        sendRemaining.textContent = '已完成';
+                        sendSpeed.textContent = '--';
+                        showToast('✅ 文件发送完成！', 'success');
+                        generateOfferBtn.style.display = '';
+                        generateOfferBtn.textContent = '🔄 发送新文件';
+                        generateOfferBtn.disabled = false;
+                        return;
+                    }
+
+                    const start = currentChunkIndex * CHUNK_SIZE;
+                    const end = Math.min(start + CHUNK_SIZE, file.size);
+                    const chunk = await readChunk(file, start, end);
+
+                    sendDc.send(chunk);
+                    sentChunks++;
+                    currentChunkIndex++;
+
+                    // 更新进度
+                    updateSendProgress();
+
+                    // 流控制：检查缓冲区
+                    if (sendDc.bufferedAmount > BUFFER_THRESHOLD) {
+                        // 等待缓冲区清空
+                        await new Promise((resolve) => {
+                            const onLow = () => {
+                                sendDc.removeEventListener('bufferedamountlow', onLow);
+                                resolve();
+                            };
+                            sendDc.addEventListener('bufferedamountlow', onLow, { once: true });
+                            // 设置阈值
+                            sendDc.bufferedAmountLowThreshold = BUFFER_THRESHOLD / 2;
+                        });
+                    }
+
+                    // 使用setTimeout让出主线程，避免阻塞UI
+                    setTimeout(() => sendNextChunk(), 0);
+                }
+
+                sendNextChunk();
+            }
+
+            function updateSendProgress() {
+                const now = performance.now();
+                const percent = totalChunks > 0 ? Math.round((sentChunks / totalChunks) * 100) : 0;
+                sendProgressBar.style.width = percent + '%';
+                sendProgressText.textContent = percent + '%';
+                sendRemaining.textContent = `${sentChunks}/${totalChunks} 块`;
+
+                // 速度计算（每500ms更新一次）
+                const elapsedSinceLast = now - lastUpdateTime;
+                if (elapsedSinceLast > 500) {
+                    const bytesSinceLast = sentChunks * CHUNK_SIZE - lastUpdateBytes;
+                    const speed = bytesSinceLast / (elapsedSinceLast / 1000);
+                    sendSpeed.textContent = formatBytesPerSec(speed);
+                    lastUpdateTime = now;
+                    lastUpdateBytes = sentChunks * CHUNK_SIZE;
+                }
+
+                // 预估剩余时间
+                if (sentChunks > 0 && sentChunks < totalChunks) {
+                    const elapsedTotal = now - transferStartTime;
+                    const avgSpeed = (sentChunks * CHUNK_SIZE) / (elapsedTotal / 1000);
+                    const remainingBytes = (totalChunks - sentChunks) * CHUNK_SIZE;
+                    const remainingSec = avgSpeed > 0 ? remainingBytes / avgSpeed : 0;
+                    if (remainingSec > 60) {
+                        sendRemaining.textContent = `剩余约 ${Math.round(remainingSec / 60)} 分钟`;
+                    } else if (remainingSec > 0) {
+                        sendRemaining.textContent = `剩余约 ${Math.ceil(remainingSec)} 秒`;
+                    }
+                }
+            }
+
+            function readChunk(file, start, end) {
+                return new Promise((resolve, reject) => {
+                    const slice = file.slice(start, end);
+                    const reader = new FileReader();
+                    reader.onload = (e) => resolve(new Uint8Array(e.target.result));
+                    reader.onerror = reject;
+                    reader.readAsArrayBuffer(slice);
+                });
+            }
+
+            function formatBytesPerSec(bytesPerSec) {
+                if (bytesPerSec < 1024) return bytesPerSec.toFixed(0) + ' B/s';
+                if (bytesPerSec < 1024 * 1024) return (bytesPerSec / 1024).toFixed(1) + ' KB/s';
+                return (bytesPerSec / (1024 * 1024)).toFixed(2) + ' MB/s';
+            }
+
+            // ============ 接收方：处理Offer ============
+            window.processOffer = async function() {
+                const offerSdp = receiveOfferInput.value.trim();
+                if (!offerSdp) {
+                    showToast('请粘贴发送方的连接码', '');
+                    return;
+                }
+
+                processOfferBtn.disabled = true;
+                processOfferBtn.textContent = '⏳ 正在解析...';
+                answerSdpText.value = '正在收集网络信息...';
+                answerSection.classList.remove('hidden');
+                receiveProgress.classList.remove('active');
+                receiveFileInfo.classList.add('hidden');
+                downloadBtn.classList.add('hidden');
+                cleanupConnection();
+                receivedData = [];
+                receivedChunks = 0;
+                totalChunks = 0;
+                transferComplete = false;
+
+                try {
+                    pc = new RTCPeerConnection({
+                        iceServers: []
+                    });
+
+                    // 监听DataChannel
+                    pc.ondatachannel = (event) => {
+                        dc = event.channel;
+                        setupDataChannelForReceive(dc);
+                    };
+
+                    // 设置Remote Description
+                    const remoteDesc = new RTCSessionDescription({
+                        type: 'offer',
+                        sdp: offerSdp,
+                    });
+                    await pc.setRemoteDescription(remoteDesc);
+
+                    // 创建Answer
+                    const answer = await pc.createAnswer();
+                    await pc.setLocalDescription(answer);
+
+                    // 等待ICE收集完成
+                    await waitForIceComplete(pc);
+
+                    const fullSdp = pc.localDescription.sdp;
+                    answerSdpText.value = fullSdp;
+                    answerSection.classList.remove('hidden');
+                    copyAnswerBtn.classList.remove('copied');
+                    copyAnswerBtn.textContent = '📋 复制到剪贴板';
+                    receiveWaitTag.style.display = '';
+                    receiveWaitTag.innerHTML = '<span class="status-dot"></span>等待发送方确认...';
+                    receiveWaitTag.className = 'status-tag status-connecting';
+
+                    // 自动复制
+                    autoCopySdp(fullSdp, 'copyAnswerBtn');
+
+                    showToast('✅ 回复码已生成，请发送给发送方', 'success');
+                    processOfferBtn.textContent = '🔄 重新生成回复码';
+                    processOfferBtn.disabled = false;
+
+                } catch (err) {
+                    console.error('处理Offer失败:', err);
+                    showToast('❌ 解析失败: ' + err.message, '');
+                    processOfferBtn.disabled = false;
+                    processOfferBtn.textContent = '🔓 解析并生成回复码';
+                    answerSection.classList.add('hidden');
+                    cleanupConnection();
+                }
+            };
+
+            function setupDataChannelForReceive(channel) {
+                channel.onopen = () => {
+                    console.log('接收方DataChannel已打开');
+                    receiveWaitTag.innerHTML = '<span class="status-dot"></span>已连接，等待接收...';
+                    receiveWaitTag.className = 'status-tag status-connected';
+                };
+
+                channel.onmessage = (event) => {
+                    if (typeof event.data === 'string') {
+                        // 文本消息
+                        try {
+                            const msg = JSON.parse(event.data);
+                            if (msg.type === 'metadata') {
+                                // 接收到元数据
+                                receiveFileNameStr = msg.name;
+                                receiveFileSizeNum = msg.size;
+                                totalChunks = msg.totalChunks;
+                                receivedChunks = 0;
+                                receivedData = new Array(totalChunks);
+                                transferStartTime = performance.now();
+                                lastUpdateTime = transferStartTime;
+                                lastUpdateBytes = 0;
+                                transferComplete = false;
+
+                                // 显示文件信息
+                                receiveFileName.textContent = msg.name;
+                                receiveFileSize.textContent = formatBytes(msg.size);
+                                receiveFileInfo.classList.remove('hidden');
+                                receiveProgress.classList.add('active');
+                                receiveWaitTag.style.display = 'none';
+                                receiveStatusTag.innerHTML = '<span class="status-dot"></span>接收中';
+                                receiveStatusTag.className = 'status-tag status-transferring';
+                                downloadBtn.classList.add('hidden');
+                                receiveProgressBar.style.width = '0%';
+                                receiveProgressText.textContent = '0%';
+                                receiveSpeed.textContent = '--';
+                                receiveRemaining.textContent = `0/${totalChunks} 块`;
+                            } else if (msg.type === 'complete') {
+                                // 传输完成
+                                finishReceiving();
+                            }
+                        } catch (e) {
+                            console.warn('无法解析消息:', event.data);
+                        }
+                    } else if (event.data instanceof ArrayBuffer || event.data instanceof Uint8Array) {
+                        // 二进制数据块
+                        const chunk = new Uint8Array(event.data);
+                        if (receivedData[receivedChunks] === undefined && receivedChunks < totalChunks) {
+                            receivedData[receivedChunks] = chunk;
+                            receivedChunks++;
+                            updateReceiveProgress();
+
+                            // 检查是否已接收所有块
+                            if (receivedChunks >= totalChunks && totalChunks > 0) {
+                                // 所有块已收到，但等待complete消息确认
+                                // 也可能complete消息先到，所以这里做双重检查
+                                checkIfAllReceived();
+                            }
+                        }
+                    }
+                };
+
+                channel.onclose = () => {
+                    console.log('接收方DataChannel关闭');
+                    if (!transferComplete && totalChunks > 0 && receivedChunks < totalChunks) {
+                        showToast('⚠️ 连接意外断开，传输未完成', '');
+                        receiveStatusTag.innerHTML = '<span class="status-dot"></span>连接断开';
+                        receiveStatusTag.className = 'status-tag status-error';
+                    }
+                };
+
+                channel.onerror = (err) => {
+                    console.error('接收方DataChannel错误:', err);
+                };
+            }
+
+            function updateReceiveProgress() {
+                const now = performance.now();
+                const percent = totalChunks > 0 ? Math.round((receivedChunks / totalChunks) * 100) : 0;
+                receiveProgressBar.style.width = percent + '%';
+                receiveProgressText.textContent = percent + '%';
+                receiveRemaining.textContent = `${receivedChunks}/${totalChunks} 块`;
+
+                const elapsedSinceLast = now - lastUpdateTime;
+                if (elapsedSinceLast > 500) {
+                    const bytesSinceLast = receivedChunks * CHUNK_SIZE - lastUpdateBytes;
+                    const speed = bytesSinceLast / (elapsedSinceLast / 1000);
+                    receiveSpeed.textContent = formatBytesPerSec(speed);
+                    lastUpdateTime = now;
+                    lastUpdateBytes = receivedChunks * CHUNK_SIZE;
+                }
+
+                if (receivedChunks > 0 && receivedChunks < totalChunks) {
+                    const elapsedTotal = now - transferStartTime;
+                    const avgSpeed = (receivedChunks * CHUNK_SIZE) / (elapsedTotal / 1000);
+                    const remainingBytes = (totalChunks - receivedChunks) * CHUNK_SIZE;
+                    const remainingSec = avgSpeed > 0 ? remainingBytes / avgSpeed : 0;
+                    if (remainingSec > 60) {
+                        receiveRemaining.textContent = `剩余约 ${Math.round(remainingSec / 60)} 分钟`;
+                    } else if (remainingSec > 0) {
+                        receiveRemaining.textContent = `剩余约 ${Math.ceil(remainingSec)} 秒`;
+                    }
+                }
+            }
+
+            function checkIfAllReceived() {
+                if (receivedChunks >= totalChunks && totalChunks > 0 && !transferComplete) {
+                    // 所有块都已收到
+                    // 给一个短暂延迟等待可能的complete消息
+                    setTimeout(() => {
+                        if (!transferComplete && receivedChunks >= totalChunks && totalChunks > 0) {
+                            finishReceiving();
+                        }
+                    }, 500);
+                }
+            }
+
+            function finishReceiving() {
+                if (transferComplete) return;
+                transferComplete = true;
+
+                receiveStatusTag.innerHTML = '<span class="status-dot"></span>接收完成';
+                receiveStatusTag.className = 'status-tag status-complete';
+                receiveProgressBar.style.width = '100%';
+                receiveProgressText.textContent = '100%';
+                receiveRemaining.textContent = '已完成';
+                receiveSpeed.textContent = '--';
+                downloadBtn.classList.remove('hidden');
+                receiveWaitTag.style.display = 'none';
+                showToast('✅ 文件接收完成！点击下载保存', 'success');
+            }
+
+            window.downloadReceivedFile = function() {
+                if (!transferComplete || receivedChunks < totalChunks || totalChunks === 0) {
+                    showToast('文件尚未接收完整', '');
+                    return;
+                }
+
+                // 合并所有块
+                const totalSize = receivedData.reduce((sum, chunk) => sum + (chunk ? chunk.length : 0), 0);
+                const merged = new Uint8Array(totalSize);
+                let offset = 0;
+                for (let i = 0; i < totalChunks; i++) {
+                    if (receivedData[i]) {
+                        merged.set(receivedData[i], offset);
+                        offset += receivedData[i].length;
+                    }
+                }
+
+                const blob = new Blob([merged]);
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = receiveFileNameStr || 'received_file';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                showToast('💾 文件已保存', 'success');
+            };
+
+            // ============ 工具函数 ============
+            function waitForIceComplete(connection) {
+                return new Promise((resolve, reject) => {
+                    if (connection.iceGatheringState === 'complete') {
+                        resolve();
+                        return;
+                    }
+                    const timeout = setTimeout(() => {
+                        // 10秒超时，使用当前状态
+                        console.warn('ICE收集超时，使用当前状态:', connection.iceGatheringState);
+                        resolve();
+                    }, 10000);
+                    connection.onicegatheringstatechange = () => {
+                        if (connection.iceGatheringState === 'complete') {
+                            clearTimeout(timeout);
+                            resolve();
+                        }
+                    };
+                });
+            }
+
+            window.copySdp = function(textAreaId, btnId) {
+                const textArea = document.getElementById(textAreaId);
+                const btn = document.getElementById(btnId);
+                const text = textArea.value;
+
+                if (!text) {
+                    showToast('没有可复制的内容', '');
+                    return;
+                }
+
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(text).then(() => {
+                        showCopiedFeedback(btn);
+                    }).catch(() => {
+                        fallbackCopy(textArea, btn);
+                    });
+                } else {
+                    fallbackCopy(textArea, btn);
+                }
+            };
+
+            function autoCopySdp(text, btnId) {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(text).then(() => {
+                        const btn = document.getElementById(btnId);
+                        if (btn) showCopiedFeedback(btn);
+                    }).catch(() => {});
+                }
+            }
+
+            function fallbackCopy(textArea, btn) {
+                textArea.select();
+                textArea.setSelectionRange(0, 99999);
+                try {
+                    document.execCommand('copy');
+                    showCopiedFeedback(btn);
+                } catch (e) {
+                    showToast('复制失败，请手动选择复制', '');
+                }
+                window.getSelection().removeAllRanges();
+            }
+
+            function showCopiedFeedback(btn) {
+                if (!btn) return;
+                btn.classList.add('copied');
+                btn.textContent = '✅ 已复制';
+                setTimeout(() => {
+                    btn.classList.remove('copied');
+                    btn.textContent = '📋 复制到剪贴板';
+                }, 2000);
+            }
+
+            // ============ 初始化 ============
+            function init() {
+                resetSendUI();
+                resetReceiveUI();
+                fileInfo.classList.add('hidden');
+                generateOfferBtn.disabled = true;
+                sendPanel.classList.remove('active');
+                receivePanel.classList.remove('active');
+                roleSelection.style.display = '';
+                cleanupConnection();
+            }
+
+            // ============ 页面关闭时清理 ============
+            window.addEventListener('beforeunload', () => {
+                cleanupConnection();
+            });
+
+            // ============ PC连接状态监控 ============
+            // 在创建PC后添加状态监控
+            const origGenerateOffer = window.generateOffer;
+            window.generateOffer = async function() {
+                await origGenerateOffer();
+                if (pc) {
+                    pc.onconnectionstatechange = () => {
+                        console.log('发送方连接状态:', pc.connectionState);
+                        if (pc.connectionState === 'connected' && sendDc && sendDc.readyState === 'open' && selectedFile &&
+                            !transferComplete && sentChunks === 0) {
+                            // 自动开始发送
+                            startSendingFile();
+                        }
+                        if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
+                            if (!transferComplete && selectedFile && sentChunks > 0) {
+                                showToast('⚠️ 连接断开', '');
+                            }
+                        }
+                    };
+                }
+            };
+
+            const origProcessOffer = window.processOffer;
+            window.processOffer = async function() {
+                await origProcessOffer();
+                if (pc) {
+                    pc.onconnectionstatechange = () => {
+                        console.log('接收方连接状态:', pc.connectionState);
+                        if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
+                            if (!transferComplete && totalChunks > 0 && receivedChunks < totalChunks) {
+                                showToast('⚠️ 连接断开，传输未完成', '');
+                                receiveStatusTag.innerHTML = '<span class="status-dot"></span>连接断开';
+                                receiveStatusTag.className = 'status-tag status-error';
+                            }
+                        }
+                    };
+                }
+            };
+
+            init();
+            console.log('🚀 局域网文件传输工具已就绪');
+            console.log('💡 提示：发送方和接收方都需要打开此页面');
+            console.log('📤 发送方：选择文件 → 生成连接码 → 发送给对方 → 粘贴回复码 → 自动传输');
+            console.log('📥 接收方：粘贴连接码 → 生成回复码 → 发送给对方 → 自动接收');
+            console.log('🔒 数据通过P2P直连传输，不经过任何服务器');
+        })();
+    </script>
+</body>
+</html>
